@@ -31,28 +31,46 @@ export const updateBotConfig = async (config: any) => {
 }
 
 // Description: Get bot status
-// Endpoint: GET /api/bot/status
+// Endpoint: GET /api/bot-configuration/status
 // Request: {}
-// Response: { status: { online: boolean, knowledgeBaseSize: number, lastActivity: string, version: string } }
-export const getBotStatus = () => {
-  console.log("Fetching bot status")
-  // Mocking the response - this will be implemented in a later task
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        status: {
-          online: true,
-          knowledgeBaseSize: 1247,
-          lastActivity: '2024-01-15T14:30:00Z',
-          version: '2.1.0'
-        }
-      });
-    }, 300);
-  });
-  // Uncomment the below lines to make an actual API call
-  // try {
-  //   return await api.get('/api/bot/status');
-  // } catch (error) {
-  //   throw new Error(error?.response?.data?.message || error.message);
-  // }
+// Response: { success: boolean, status: { online: boolean, knowledgeBaseSize: number, lastActivity: string, version: string } }
+export const getBotStatus = async () => {
+  try {
+    console.log("Fetching bot status");
+    const response = await api.get('/api/bot-configuration/status');
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching bot status:", error);
+    throw new Error(error?.response?.data?.message || error.message);
+  }
+}
+
+// Description: Get global bot configuration
+// Endpoint: GET /api/bot-configuration
+// Request: {}
+// Response: { success: boolean, config: { welcomeMessage: string, defaultLanguage: string, activeFeatures: string[], responseTimeout: number, maxConversationLength: number } }
+export const getGlobalBotConfig = async () => {
+  try {
+    console.log("Fetching global bot configuration");
+    const response = await api.get('/api/bot-configuration');
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching global bot configuration:", error);
+    throw new Error(error?.response?.data?.message || error.message);
+  }
+}
+
+// Description: Update global bot configuration
+// Endpoint: PUT /api/bot-configuration
+// Request: { welcomeMessage: string, defaultLanguage: string, activeFeatures: string[], responseTimeout: number, maxConversationLength: number }
+// Response: { success: boolean, message: string, config: object }
+export const updateGlobalBotConfig = async (config: any) => {
+  try {
+    console.log("Updating global bot configuration");
+    const response = await api.put('/api/bot-configuration', config);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating global bot configuration:", error);
+    throw new Error(error?.response?.data?.message || error.message);
+  }
 }

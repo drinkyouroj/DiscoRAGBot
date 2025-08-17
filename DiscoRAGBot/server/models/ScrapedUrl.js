@@ -7,17 +7,14 @@ const scrapedUrlSchema = new mongoose.Schema({
   },
   title: {
     type: String,
-    required: false,
     default: 'Processing...'
   },
   content: {
     type: String,
-    required: false,
     default: 'Content will be available after processing'
   },
   preview: {
     type: String,
-    required: false,
     default: 'Preview will be available after processing'
   },
   status: {

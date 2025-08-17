@@ -7,8 +7,10 @@ const MongoStore = require('connect-mongo');
 const basicRoutes = require("./routes/index");
 const authRoutes = require("./routes/authRoutes");
 const botSettingsRoutes = require("./routes/botSettingsRoutes");
+const globalBotConfigRoutes = require("./routes/globalBotConfigRoutes");
 const fileRoutes = require("./routes/fileRoutes");
 const urlRoutes = require("./routes/urlRoutes");
+const manualEntryRoutes = require("./routes/manualEntryRoutes");
 const { connectDB } = require("./config/database");
 const cors = require("cors");
 
@@ -30,6 +32,7 @@ app.use(cors({}));
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   console.log('Headers:', req.headers);
+  console.log('Request received, proceeding to next middleware');
   next();
 });
 
@@ -48,12 +51,35 @@ app.on("error", (error) => {
 app.use(basicRoutes);
 // Authentication Routes
 app.use('/api/auth', authRoutes);
-// Bot Settings Routes
+// Bot Settings Routes (user-specific)
 app.use('/api/users', botSettingsRoutes);
+// Global Bot Configuration Routes
+console.log('Registering global bot configuration routes at /api/bot-configuration');
+app.use('/api/bot-configuration', globalBotConfigRoutes);
 // File Routes
 app.use('/api/files', fileRoutes);
 // URL Routes
 app.use('/api/urls', urlRoutes);
+// Manual Entry Routes
+app.use('/api/manual-entries', manualEntryRoutes);
+
+// Add response logging middleware
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  const originalJson = res.json;
+  
+  res.send = function(data) {
+    console.log(`Response sent for ${req.method} ${req.url} with status ${res.statusCode}`);
+    return originalSend.call(this, data);
+  };
+  
+  res.json = function(data) {
+    console.log(`JSON response sent for ${req.method} ${req.url} with status ${res.statusCode}`);
+    return originalJson.call(this, data);
+  };
+  
+  next();
+});
 
 // If no routes handled the request, it's a 404
 app.use((req, res, next) => {

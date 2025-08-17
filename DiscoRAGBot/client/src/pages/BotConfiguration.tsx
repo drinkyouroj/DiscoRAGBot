@@ -29,9 +29,12 @@ import {
   Save,
   RefreshCw,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Copy,
+  Eye,
+  EyeOff
 } from "lucide-react"
-import { getBotConfig, updateBotConfig, getBotStatus } from "@/api/bot-config"
+import { getBotConfig, updateBotConfig, getBotStatus, getGlobalBotConfig, updateGlobalBotConfig } from "@/api/bot-config"
 import { useToast } from "@/hooks/useToast"
 
 interface BotConfigForm {
@@ -45,30 +48,51 @@ interface BotConfigForm {
   enabledChannels: string
 }
 
+interface GlobalConfigForm {
+  welcomeMessage: string
+  defaultLanguage: string
+  activeFeatures: string[]
+  responseTimeout: number
+  maxConversationLength: number
+}
+
 export function BotConfiguration() {
   const [config, setConfig] = useState<any>(null)
+  const [globalConfig, setGlobalConfig] = useState<any>(null)
   const [botStatus, setBotStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingGlobal, setSavingGlobal] = useState(false)
   const [confidenceThreshold, setConfidenceThreshold] = useState([0.7])
+  const [showToken, setShowToken] = useState(false)
+  const [accessToken, setAccessToken] = useState("")
   const { toast } = useToast()
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<BotConfigForm>()
+  const { register: registerGlobal, handleSubmit: handleSubmitGlobal, setValue: setValueGlobal, watch: watchGlobal } = useForm<GlobalConfigForm>()
 
   const watchedPersonality = watch("personality")
   const watchedTone = watch("tone")
   const watchedResponseLength = watch("responseLength")
 
   useEffect(() => {
+    // Get access token from localStorage
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      setAccessToken(token)
+    }
+
     const fetchData = async () => {
       try {
         console.log("Fetching bot configuration and status")
-        const [configRes, statusRes] = await Promise.all([
+        const [configRes, statusRes, globalConfigRes] = await Promise.all([
           getBotConfig(),
-          getBotStatus()
+          getBotStatus(),
+          getGlobalBotConfig()
         ])
 
         setConfig(configRes.config)
         setBotStatus(statusRes.status)
+        setGlobalConfig(globalConfigRes.config)
 
         // Set form values
         setValue("personality", configRes.config.personality)
@@ -79,6 +103,13 @@ export function BotConfiguration() {
         setValue("includeCitations", configRes.config.includeCitations)
         setValue("enabledChannels", configRes.config.enabledChannels.join(", "))
         setConfidenceThreshold([configRes.config.confidenceThreshold])
+
+        // Set global form values
+        setValueGlobal("welcomeMessage", globalConfigRes.config.welcomeMessage)
+        setValueGlobal("defaultLanguage", globalConfigRes.config.defaultLanguage)
+        setValueGlobal("activeFeatures", globalConfigRes.config.activeFeatures)
+        setValueGlobal("responseTimeout", globalConfigRes.config.responseTimeout)
+        setValueGlobal("maxConversationLength", globalConfigRes.config.maxConversationLength)
       } catch (error) {
         console.error("Error fetching bot data:", error)
         toast({
@@ -92,7 +123,7 @@ export function BotConfiguration() {
     }
 
     fetchData()
-  }, [setValue, toast])
+  }, [setValue, setValueGlobal, toast])
 
   const onSubmit = async (data: BotConfigForm) => {
     setSaving(true)
@@ -121,13 +152,42 @@ export function BotConfiguration() {
     }
   }
 
+  const onSubmitGlobal = async (data: GlobalConfigForm) => {
+    setSavingGlobal(true)
+    try {
+      console.log("Updating global bot configuration")
+      await updateGlobalBotConfig(data)
+      toast({
+        title: "Success",
+        description: "Global bot configuration updated successfully"
+      })
+    } catch (error) {
+      console.error("Error updating global bot config:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update global bot configuration",
+        variant: "destructive"
+      })
+    } finally {
+      setSavingGlobal(false)
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast({
+      title: "Copied",
+      description: "Access token copied to clipboard"
+    })
+  }
+
   const getPreviewResponse = () => {
     const personality = watchedPersonality || "friendly"
     const tone = watchedTone || "conversational"
     const length = watchedResponseLength || "medium"
 
     let response = ""
-    
+
     if (personality === "professional") {
       response = "I can assist you with that inquiry. "
     } else if (personality === "friendly") {
@@ -192,15 +252,16 @@ export function BotConfiguration() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <Tabs defaultValue="personality" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl">
-            <TabsTrigger value="personality">Personality</TabsTrigger>
-            <TabsTrigger value="behavior">Behavior</TabsTrigger>
-            <TabsTrigger value="channels">Channels</TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="personality" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl">
+          <TabsTrigger value="personality">Personality</TabsTrigger>
+          <TabsTrigger value="behavior">Behavior</TabsTrigger>
+          <TabsTrigger value="global">Global Config</TabsTrigger>
+          <TabsTrigger value="api">API Testing</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="personality" className="space-y-6">
+        <TabsContent value="personality" className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
               <Card className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-slate-200/50">
                 <CardHeader>
@@ -284,9 +345,39 @@ export function BotConfiguration() {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
 
-          <TabsContent value="behavior" className="space-y-6">
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => window.location.reload()}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Configuration
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </TabsContent>
+
+        <TabsContent value="behavior" className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
               <Card className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-slate-200/50">
                 <CardHeader>
@@ -381,85 +472,262 @@ export function BotConfiguration() {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
 
-          <TabsContent value="channels" className="space-y-6">
-            <Card className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-slate-200/50">
-              <CardHeader>
-                <CardTitle>Bot Status & Information</CardTitle>
-                <CardDescription>
-                  Current bot status and system information
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    <div className={`w-3 h-3 rounded-full ${botStatus?.online ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <div>
-                      <p className="text-sm font-medium">Status</p>
-                      <p className="text-xs text-slate-500">{botStatus?.online ? 'Online' : 'Offline'}</p>
-                    </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => window.location.reload()}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Configuration
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </TabsContent>
+
+        <TabsContent value="global" className="space-y-6">
+          <form onSubmit={handleSubmitGlobal(onSubmitGlobal)} className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-slate-200/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-orange-600" />
+                    Global Bot Settings
+                  </CardTitle>
+                  <CardDescription>
+                    Configure global bot behavior and features
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="welcomeMessage">Welcome Message</Label>
+                    <Textarea
+                      {...registerGlobal("welcomeMessage")}
+                      placeholder="Enter welcome message..."
+                      rows={3}
+                      className="bg-white/50 dark:bg-slate-800/50"
+                    />
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-green-600" />
-                    <div>
-                      <p className="text-sm font-medium">Knowledge Base</p>
-                      <p className="text-xs text-slate-500">{botStatus?.knowledgeBaseSize} documents</p>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="defaultLanguage">Default Language</Label>
+                    <Select onValueChange={(value) => setValueGlobal("defaultLanguage", value)} defaultValue={globalConfig?.defaultLanguage}>
+                      <SelectTrigger className="bg-white/50 dark:bg-slate-800/50">
+                        <SelectValue placeholder="Select language" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white dark:bg-slate-900">
+                        <SelectItem value="en">English</SelectItem>
+                        <SelectItem value="es">Spanish</SelectItem>
+                        <SelectItem value="fr">French</SelectItem>
+                        <SelectItem value="de">German</SelectItem>
+                        <SelectItem value="it">Italian</SelectItem>
+                        <SelectItem value="pt">Portuguese</SelectItem>
+                        <SelectItem value="ru">Russian</SelectItem>
+                        <SelectItem value="ja">Japanese</SelectItem>
+                        <SelectItem value="ko">Korean</SelectItem>
+                        <SelectItem value="zh">Chinese</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    <RefreshCw className="w-4 h-4 text-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium">Version</p>
-                      <p className="text-xs text-slate-500">{botStatus?.version}</p>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="responseTimeout">Response Timeout (seconds)</Label>
+                    <Input
+                      {...registerGlobal("responseTimeout", { valueAsNumber: true })}
+                      type="number"
+                      min="5"
+                      max="300"
+                      className="bg-white/50 dark:bg-slate-800/50"
+                    />
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                    <Activity className="w-4 h-4 text-purple-600" />
-                    <div>
-                      <p className="text-sm font-medium">Last Activity</p>
-                      <p className="text-xs text-slate-500">
-                        {new Date(botStatus?.lastActivity).toLocaleTimeString()}
-                      </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="maxConversationLength">Max Conversation Length</Label>
+                    <Input
+                      {...registerGlobal("maxConversationLength", { valueAsNumber: true })}
+                      type="number"
+                      min="1"
+                      max="100"
+                      className="bg-white/50 dark:bg-slate-800/50"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-slate-200/50">
+                <CardHeader>
+                  <CardTitle>Bot Status & Information</CardTitle>
+                  <CardDescription>
+                    Current bot status and system information
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className={`w-3 h-3 rounded-full ${botStatus?.online ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <div>
+                        <p className="text-sm font-medium">Status</p>
+                        <p className="text-xs text-slate-500">{botStatus?.online ? 'Online' : 'Offline'}</p>
+                      </div>
                     </div>
+
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <div>
+                        <p className="text-sm font-medium">Knowledge Base</p>
+                        <p className="text-xs text-slate-500">{botStatus?.knowledgeBaseSize} documents</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <RefreshCw className="w-4 h-4 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium">Version</p>
+                        <p className="text-xs text-slate-500">{botStatus?.version}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <Activity className="w-4 h-4 text-purple-600" />
+                      <div>
+                        <p className="text-sm font-medium">Last Activity</p>
+                        <p className="text-xs text-slate-500">
+                          {new Date(botStatus?.lastActivity).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => window.location.reload()}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingGlobal}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {savingGlobal ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Global Configuration
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </TabsContent>
+
+        <TabsContent value="api" className="space-y-6">
+          <Card className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-slate-200/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5 text-blue-600" />
+                API Testing
+              </CardTitle>
+              <CardDescription>
+                Access token and cURL commands for testing the API directly
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <Label>Your Access Token</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={showToken ? accessToken : "•".repeat(20)}
+                    readOnly
+                    className="bg-white/50 dark:bg-slate-800/50 font-mono text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowToken(!showToken)}
+                  >
+                    {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(accessToken)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Use this token in the Authorization header for API requests
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium">Step 6: Get Bot Status</Label>
+                  <div className="mt-2 p-3 bg-slate-900 dark:bg-slate-800 rounded-lg">
+                    <code className="text-green-400 text-sm break-all">
+                      curl -X GET http://localhost:3000/api/bot-configuration/status \<br />
+                      &nbsp;&nbsp;-H 'Authorization: Bearer {accessToken}'
+                    </code>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
 
-        <div className="flex justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => window.location.reload()}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reset
-          </Button>
-          <Button
-            type="submit"
-            disabled={saving}
-            className="bg-purple-600 hover:bg-purple-700"
-          >
-            {saving ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Save Configuration
-              </>
-            )}
-          </Button>
-        </div>
-      </form>
+                <div>
+                  <Label className="text-sm font-medium">Step 7: Update Bot Status</Label>
+                  <div className="mt-2 p-3 bg-slate-900 dark:bg-slate-800 rounded-lg">
+                    <code className="text-green-400 text-sm break-all">
+                      curl -X PUT http://localhost:3000/api/bot-configuration/status \<br />
+                      &nbsp;&nbsp;-H 'Authorization: Bearer {accessToken}' \<br />
+                      &nbsp;&nbsp;-H 'Content-Type: application/json' \<br />
+                      &nbsp;&nbsp;-d '{"{"}\"online\": false{"}"}'
+                    </code>
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium">Get Global Bot Configuration</Label>
+                  <div className="mt-2 p-3 bg-slate-900 dark:bg-slate-800 rounded-lg">
+                    <code className="text-green-400 text-sm break-all">
+                      curl -X GET http://localhost:3000/api/bot-configuration/global \<br />
+                      &nbsp;&nbsp;-H 'Authorization: Bearer {accessToken}'
+                    </code>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

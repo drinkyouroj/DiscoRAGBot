@@ -3,46 +3,68 @@ const ScrapedUrl = require('../models/ScrapedUrl');
 
 class UrlScrapingService {
   static async scrapeUrl(url, userId) {
-    console.log(`Starting URL scraping for: ${url} by user: ${userId}`);
+    console.log(`[UrlScrapingService] Starting URL scraping for: ${url} by user: ${userId}`);
 
     try {
-      // Create initial record with processing status and proper defaults
-      const scrapedUrl = new ScrapedUrl({
+      // Log the data being used to create the record
+      const recordData = {
         url,
         userId,
         status: 'processing',
         title: 'Processing...',
         content: 'Content will be available after processing',
         preview: 'Preview will be available after processing'
-      });
+      };
+      console.log(`[UrlScrapingService] Creating ScrapedUrl with data:`, JSON.stringify(recordData, null, 2));
+
+      // Create initial record with processing status and proper defaults
+      console.log(`[UrlScrapingService] About to create new ScrapedUrl instance`);
+      const scrapedUrl = new ScrapedUrl(recordData);
+      console.log(`[UrlScrapingService] ScrapedUrl instance created, about to save...`);
 
       const savedUrl = await scrapedUrl.save();
-      console.log(`Created ScrapedUrl record with ID: ${savedUrl._id}`);
+      console.log(`[UrlScrapingService] Successfully saved ScrapedUrl record with ID: ${savedUrl._id}`);
+      console.log(`[UrlScrapingService] Saved record data:`, JSON.stringify(savedUrl.toObject(), null, 2));
 
       // Start scraping in background with proper error handling
       setImmediate(async () => {
+        console.log(`[UrlScrapingService] Starting background scraping for ${url}`);
         try {
           await this.performScraping(savedUrl._id, url);
         } catch (error) {
-          console.error(`Background scraping failed for ${url}:`, error);
+          console.error(`[UrlScrapingService] Background scraping failed for ${url}:`, error);
+          console.log(`[UrlScrapingService] Attempting to update record ${savedUrl._id} with failure status`);
           // Ensure database is updated even if scraping completely fails
           try {
-            await ScrapedUrl.findByIdAndUpdate(savedUrl._id, {
+            const updateData = {
               status: 'failed',
               errorMessage: `Scraping process failed: ${error.message}`,
               title: 'Failed to scrape',
               preview: 'Scraping process encountered an error'
-            });
-            console.log(`Updated database with failure status for ${url}`);
+            };
+            console.log(`[UrlScrapingService] Background update data:`, JSON.stringify(updateData, null, 2));
+
+            const updatedRecord = await ScrapedUrl.findByIdAndUpdate(savedUrl._id, updateData, { new: true });
+            console.log(`[UrlScrapingService] Successfully updated database with failure status for ${url}`);
+            console.log(`[UrlScrapingService] Background updated record:`, JSON.stringify(updatedRecord.toObject(), null, 2));
           } catch (dbError) {
-            console.error(`Failed to update database after scraping error:`, dbError);
+            console.error(`[UrlScrapingService] Failed to update database after scraping error:`, dbError);
+            console.error(`[UrlScrapingService] Background DB error details:`, JSON.stringify(dbError, null, 2));
+            if (dbError.errors) {
+              console.error(`[UrlScrapingService] Background validation errors:`, JSON.stringify(dbError.errors, null, 2));
+            }
           }
         }
       });
 
       return savedUrl;
     } catch (error) {
-      console.error(`Error creating ScrapedUrl record:`, error);
+      console.error(`[UrlScrapingService] Error creating ScrapedUrl record:`, error);
+      console.error(`[UrlScrapingService] Error name: ${error.name}, message: ${error.message}`);
+      console.error(`[UrlScrapingService] Error stack:`, error.stack);
+      if (error.errors) {
+        console.error(`[UrlScrapingService] Validation errors:`, JSON.stringify(error.errors, null, 2));
+      }
       throw new Error(`Failed to create URL record: ${error.message}`);
     }
   }
