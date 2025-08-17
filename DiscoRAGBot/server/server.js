@@ -11,6 +11,7 @@ const globalBotConfigRoutes = require("./routes/globalBotConfigRoutes");
 const fileRoutes = require("./routes/fileRoutes");
 const urlRoutes = require("./routes/urlRoutes");
 const manualEntryRoutes = require("./routes/manualEntryRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 const { connectDB } = require("./config/database");
 const cors = require("cors");
 
@@ -62,6 +63,9 @@ app.use('/api/files', fileRoutes);
 app.use('/api/urls', urlRoutes);
 // Manual Entry Routes
 app.use('/api/manual-entries', manualEntryRoutes);
+// Analytics Routes
+console.log('Registering analytics routes at /api/analytics');
+app.use('/api/analytics', analyticsRoutes);
 
 // Add response logging middleware
 app.use((req, res, next) => {
