@@ -10,7 +10,26 @@ const localApi = axios.create({
   validateStatus: (status) => {
     return status >= 200 && status < 300;
   },
-  transformResponse: [(data) => JSONbig.parse(data)]
+  transformResponse: [(data) => {
+    // Handle empty responses
+    if (!data || data.trim() === '') {
+      return {};
+    }
+    
+    // Check if response is HTML (error page)
+    if (typeof data === 'string' && data.trim().startsWith('<')) {
+      console.error('Received HTML response instead of JSON:', data.substring(0, 100));
+      throw new Error('Server returned HTML instead of JSON. Server may be down or misconfigured.');
+    }
+    
+    try {
+      return JSONbig.parse(data);
+    } catch (error) {
+      console.error('Failed to parse JSON response:', error);
+      console.error('Response data:', data);
+      throw new Error('Invalid JSON response from server');
+    }
+  }]
 });
 
 
@@ -50,6 +69,14 @@ const setupInterceptors = (apiInstance: typeof axios) => {
     (response) => response,
     async (error: AxiosError): Promise<any> => {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+      // Log the error for debugging
+      console.error('API Request failed:', {
+        url: originalRequest?.url,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
 
       // Only refresh token when we get a 401/403 error (token is invalid/expired)
       if (error.response?.status && [401, 403].includes(error.response.status) &&
