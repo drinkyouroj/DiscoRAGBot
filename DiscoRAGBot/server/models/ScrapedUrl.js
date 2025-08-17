@@ -13,12 +13,12 @@ const scrapedUrlSchema = new mongoose.Schema({
   content: {
     type: String,
     required: false,
-    default: ''
+    default: 'Content will be available after processing'
   },
   preview: {
     type: String,
     required: false,
-    default: ''
+    default: 'Preview will be available after processing'
   },
   status: {
     type: String,
