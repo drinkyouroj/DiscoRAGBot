@@ -1,6 +1,6 @@
 const express = require('express');
 const UrlScrapingService = require('../services/urlScrapingService');
-const { requireUser } = require('./middleware/auth');
+const { authenticateToken } = require('./middleware/auth');
 
 const router = express.Router();
 
@@ -21,7 +21,7 @@ const validateUrl = (url) => {
 };
 
 // GET /api/urls - Get all scraped URLs for authenticated user
-router.get('/', requireUser, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     console.log(`GET /api/urls - User: ${req.user._id}`);
     
@@ -49,7 +49,7 @@ router.get('/', requireUser, async (req, res) => {
 });
 
 // POST /api/urls/scrape - Add a new URL for scraping
-router.post('/scrape', requireUser, async (req, res) => {
+router.post('/scrape', authenticateToken, async (req, res) => {
   try {
     console.log(`POST /api/urls/scrape - User: ${req.user._id}`);
 
@@ -131,7 +131,7 @@ router.post('/scrape', requireUser, async (req, res) => {
 });
 
 // POST /api/urls/:id/rescrape - Re-scrape an existing URL
-router.post('/:id/rescrape', requireUser, async (req, res) => {
+router.post('/:id/rescrape', authenticateToken, async (req, res) => {
   try {
     console.log(`POST /api/urls/${req.params.id}/rescrape - User: ${req.user._id}`);
     
@@ -153,7 +153,7 @@ router.post('/:id/rescrape', requireUser, async (req, res) => {
 });
 
 // DELETE /api/urls/:id - Delete a scraped URL
-router.delete('/:id', requireUser, async (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     console.log(`DELETE /api/urls/${req.params.id} - User: ${req.user._id}`);
     

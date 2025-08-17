@@ -1,6 +1,6 @@
 const express = require('express');
 const UserService = require('../services/userService.js');
-const { requireUser } = require('./middleware/auth.js');
+const { authenticateToken } = require('./middleware/auth.js');
 const User = require('../models/User.js');
 const { generateAccessToken, generateRefreshToken } = require('../utils/auth.js');
 const jwt = require('jsonwebtoken');
@@ -135,7 +135,7 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-router.get('/me', requireUser, async (req, res) => {
+router.get('/me', authenticateToken, async (req, res) => {
   return res.status(200).json(req.user);
 });
 

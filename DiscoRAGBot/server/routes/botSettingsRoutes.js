@@ -1,11 +1,11 @@
 const express = require('express');
 const BotSettingsService = require('../services/botSettingsService.js');
-const { requireUser } = require('./middleware/auth.js');
+const { authenticateToken } = require('./middleware/auth.js');
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(requireUser);
+router.use(authenticateToken);
 
 // GET /api/users/bot-settings - Get user's bot settings
 router.get('/bot-settings', async (req, res) => {

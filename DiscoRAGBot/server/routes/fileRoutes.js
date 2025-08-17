@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const FileService = require('../services/fileService');
-const { requireUser } = require('./middleware/auth');
+const { authenticateToken } = require('./middleware/auth');
 
 const router = express.Router();
 
@@ -75,7 +75,7 @@ const handleMulterError = (err, req, res, next) => {
 };
 
 // GET /api/files - Get all files for authenticated user
-router.get('/', requireUser, async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     console.log(`GET /api/files - User: ${req.user._id}`);
     const files = await FileService.getByUserId(req.user._id);
@@ -105,7 +105,7 @@ router.post('/upload', (req, res, next) => {
   console.log('Content-Length:', req.get('Content-Length'));
   console.log('Request body (before multer):', req.body);
   next();
-}, requireUser, (req, res, next) => {
+}, authenticateToken, (req, res, next) => {
   console.log('POST /api/files/upload - After auth middleware');
   console.log('User authenticated:', req.user ? req.user._id : 'No user');
   next();
@@ -142,7 +142,7 @@ router.post('/upload', (req, res, next) => {
 });
 
 // DELETE /api/files/:id - Delete a file
-router.delete('/:id', requireUser, async (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     console.log(`DELETE /api/files/${req.params.id} - User: ${req.user._id}`);
 

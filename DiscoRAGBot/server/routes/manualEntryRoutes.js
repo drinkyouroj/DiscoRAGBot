@@ -1,6 +1,6 @@
 const express = require('express');
 const ManualEntryService = require('../services/manualEntryService');
-const { requireUser } = require('./middleware/auth');
+const { authenticateToken } = require('./middleware/auth');
 
 const router = express.Router();
 
@@ -11,7 +11,7 @@ router.use((req, res, next) => {
 });
 
 // All routes require authentication
-router.use(requireUser);
+router.use(authenticateToken);
 
 // GET /api/manual-entries - Get all manual entries for authenticated user
 router.get('/', async (req, res) => {

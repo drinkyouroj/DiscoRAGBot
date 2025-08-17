@@ -1,11 +1,11 @@
 const express = require('express');
 const GlobalBotSettingsService = require('../services/globalBotSettingsService.js');
-const { requireUser } = require('./middleware/auth.js');
+const { authenticateToken } = require('./middleware/auth.js');
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(requireUser);
+router.use(authenticateToken);
 
 // GET /api/bot-configuration - Get global bot configuration
 router.get('/', async (req, res) => {
